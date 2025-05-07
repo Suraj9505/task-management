@@ -20,18 +20,40 @@ export const createTask = async (req, res) => {
 };
 
 export const getTasks = async (req, res) => {
-    try {
-        const tasks = await Task.find({
+    const { search, status, priority, dueDate } = req.query;
+
+    const query = {
+        $or: [
+            { createdBy: req.user.id },
+            { assignedTo: req.user.id }
+        ]
+    };
+
+    if (search) {
+        query.$and = [{
             $or: [
-                { createdBy: req.user.id },
-                { assignedTo: req.user.id }
+                { title: new RegExp(search, 'i') },
+                { description: new RegExp(search, 'i') }
             ]
-        }).populate('createdBy', 'name email').populate('assignedTo', 'name email');
+        }];
+    }
+
+    if (status) query.status = status;
+    if (priority) query.priority = priority;
+    if (dueDate) query.dueDate = { $lte: new Date(dueDate) };
+
+    try {
+        const tasks = await Task.find(query)
+            .populate('createdBy', 'name email')
+            .populate('assignedTo', 'name email')
+            .sort({ dueDate: 1 });
+
         res.json(tasks);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
+
 
 export const getTaskById = async (req, res) => {
     try {
